@@ -64,7 +64,8 @@ class Carrinho {
       return true;
     } else {
       print(
-          '\n❌ Erro: Você já atingiu o limite de $limiteItens itens no carrinho.');
+        '\n❌ Erro: Você já atingiu o limite de $limiteItens itens no carrinho.',
+      );
       return false;
     }
   }
@@ -113,7 +114,7 @@ int lerInt(String prompt) {
   }
 }
 
-// Função para limpar o console
+// Função para limpar o console (multi-plataforma)
 void limparTela() {
   if (Platform.isWindows) {
     stdout.write(Process.runSync("cls", [], runInShell: true).stdout);
@@ -127,7 +128,7 @@ void limparTela() {
 void main() {
   final sistema = Sistema();
   print('--- Sistema de Autoatendimento Cuidapet ---');
-  print('---       Inicializando...           ---');
+  print('---       Inicializando...            ---');
   sleep(Duration(seconds: 2));
 
   while (true) {
@@ -175,6 +176,26 @@ void iniciarAtendimentoCliente() {
   limparTela();
   print('🐶 Olá, $nomeCliente! Seja bem-vindo(a) à Cuidapet. 🐱\n');
 
+  // Funcionalidade extra: Cadastro de Pet
+  String? nomePet;
+  String? racaPet;
+
+  while (true) {
+    String cadastrarPet = lerEntrada(
+      'Deseja cadastrar seu pet para este atendimento? (s/n): ',
+    ).toLowerCase();
+    if (cadastrarPet == 's') {
+      nomePet = lerEntrada('Qual o nome do seu pet? ');
+      racaPet = lerEntrada('Qual a raça dele(a)? ');
+      print('✅ Pet "$nomePet" ($racaPet) registrado para esta sessão!\n');
+      break;
+    } else if (cadastrarPet == 'n') {
+      break;
+    } else {
+      print('❌ Opção inválida. Digite "s" para sim ou "n" para não.');
+    }
+  }
+
   bool clienteAtivo = true;
   while (clienteAtivo) {
     exibirMenuPrincipal();
@@ -191,7 +212,7 @@ void iniciarAtendimentoCliente() {
         carrinho.listarItens();
         break;
       case 4:
-        finalizarCarrinho(carrinho, nomeCliente);
+        finalizarCarrinho(carrinho, nomeCliente, nomePet, racaPet);
         clienteAtivo = false; // Finaliza o loop para este cliente
         break;
       case 0:
@@ -225,16 +246,21 @@ void verPromocoes(Carrinho carrinho) {
   print('------------------------------------');
 
   if (carrinho.itens.length >= carrinho.limiteItens) {
-    print('Seu carrinho está cheio. Finalize a compra para adicionar mais itens.');
+    print(
+      'Seu carrinho está cheio. Finalize a compra para adicionar mais itens.',
+    );
     return;
   }
 
-  int codigo =
-      lerInt('Digite o código do produto para adicionar ao carrinho (ou 0 para voltar): ');
+  int codigo = lerInt(
+    'Digite o código do produto para adicionar ao carrinho (ou 0 para voltar): ',
+  );
   if (codigo == 0) return;
 
-  var produto = sistema.produtos
-      .firstWhere((p) => p.codigo == codigo, orElse: () => Produto(-1, '', 0.0));
+  var produto = sistema.produtos.firstWhere(
+    (p) => p.codigo == codigo,
+    orElse: () => Produto(-1, '', 0.0),
+  );
 
   if (produto.codigo != -1) {
     carrinho.adicionarItem(produto);
@@ -250,16 +276,21 @@ void solicitarServicos(Carrinho carrinho) {
   print('--------------------------');
 
   if (carrinho.itens.length >= carrinho.limiteItens) {
-    print('Seu carrinho está cheio. Finalize a compra para adicionar mais itens.');
+    print(
+      'Seu carrinho está cheio. Finalize a compra para adicionar mais itens.',
+    );
     return;
   }
 
-  int codigo =
-      lerInt('Digite o código do serviço para adicionar ao carrinho (ou 0 para voltar): ');
+  int codigo = lerInt(
+    'Digite o código do serviço para adicionar ao carrinho (ou 0 para voltar): ',
+  );
   if (codigo == 0) return;
 
-  var servico = sistema.servicos
-      .firstWhere((s) => s.codigo == codigo, orElse: () => Servico(-1, '', 0.0));
+  var servico = sistema.servicos.firstWhere(
+    (s) => s.codigo == codigo,
+    orElse: () => Servico(-1, '', 0.0),
+  );
 
   if (servico.codigo != -1) {
     carrinho.adicionarItem(servico);
@@ -268,7 +299,12 @@ void solicitarServicos(Carrinho carrinho) {
   }
 }
 
-void finalizarCarrinho(Carrinho carrinho, String nomeCliente) {
+void finalizarCarrinho(
+  Carrinho carrinho,
+  String nomeCliente,
+  String? nomePet,
+  String? racaPet,
+) {
   if (carrinho.itens.isEmpty) {
     print('\n❌ Seu carrinho está vazio! Adicione itens antes de finalizar.');
     return;
@@ -279,6 +315,7 @@ void finalizarCarrinho(Carrinho carrinho, String nomeCliente) {
   carrinho.listarItens();
   double total = carrinho.calcularTotal();
   double totalComDesconto = total;
+  String formaPagamentoStr = '';
 
   while (true) {
     print('\nFormas de Pagamento:');
@@ -289,11 +326,14 @@ void finalizarCarrinho(Carrinho carrinho, String nomeCliente) {
 
     if (formaPagamento == 1) {
       totalComDesconto = total * 0.90;
+      formaPagamentoStr = 'Dinheiro';
       print('✅ Desconto de 10% aplicado!');
       break;
     } else if (formaPagamento == 2) {
+      formaPagamentoStr = 'Cartão';
       break;
     } else if (formaPagamento == 3) {
+      formaPagamentoStr = 'PIX';
       break;
     } else {
       print('❌ Opção de pagamento inválida.');
@@ -309,8 +349,54 @@ void finalizarCarrinho(Carrinho carrinho, String nomeCliente) {
   final sistema = Sistema();
   sistema.totalFaturadoDia += totalComDesconto;
 
-  print('\nCompra finalizada com sucesso. A Cuidapet agradece a sua preferência!');
+  // Funcionalidade extra: Geração de Recibo
+  gerarRecibo(
+    nomeCliente,
+    carrinho,
+    total,
+    totalComDesconto,
+    formaPagamentoStr,
+    nomePet,
+    racaPet,
+  );
+
+  print(
+    '\nCompra finalizada com sucesso. A Cuidapet agradece a sua preferência!',
+  );
   print('Atendimento encerrado.');
+}
+
+void gerarRecibo(
+  String nomeCliente,
+  Carrinho carrinho,
+  double subtotal,
+  double totalPago,
+  String formaPagamento,
+  String? nomePet,
+  String? racaPet,
+) {
+  print('\n\n========== RECIBO CUIDAPET ==========');
+  print(
+    'Data/Hora: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} ${DateTime.now().hour}:${DateTime.now().minute}',
+  );
+  print('Cliente: $nomeCliente');
+  if (nomePet != null && racaPet != null) {
+    print('Pet: $nomePet ($racaPet)');
+  }
+  print('-------------------------------------');
+  print('Itens Comprados:');
+  carrinho.itens.forEach((item) {
+    print('- ${item.nome.padRight(25)} R\$ ${item.preco.toStringAsFixed(2)}');
+  });
+  print('-------------------------------------');
+  print('Subtotal: R\$ ${subtotal.toStringAsFixed(2)}');
+  if (subtotal != totalPago) {
+    print('Desconto: R\$ ${(subtotal - totalPago).toStringAsFixed(2)}');
+  }
+  print('TOTAL PAGO: R\$ ${totalPago.toStringAsFixed(2)}');
+  print('Forma de Pagamento: $formaPagamento');
+  print('=====================================');
+  print('    Obrigado e volte sempre!    \n\n');
 }
 
 // Área Restrita para Funcionários
@@ -331,13 +417,13 @@ void acessarAreaRestrita() {
     double valorCompra = 0.0;
     while (true) {
       try {
-        valorCompra =
-            double.parse(lerEntrada('Valor da compra: R\$ '));
+        valorCompra = double.parse(lerEntrada('Valor da compra: R\$ '));
         if (valorCompra > 0) break;
         print('❌ O valor deve ser positivo.');
       } catch (e) {
         print(
-            '❌ Valor inválido. Use ponto como separador decimal (ex: 50.75).');
+          '❌ Valor inválido. Use ponto como separador decimal (ex: 50.75).',
+        );
       }
     }
 
@@ -355,7 +441,8 @@ void acessarAreaRestrita() {
         valorFinal = valorCompra * 0.9;
         formaPagamentoStr = 'Dinheiro';
         print(
-            '✅ Desconto de 10% aplicado. Valor final: R\$ ${valorFinal.toStringAsFixed(2)}');
+          '✅ Desconto de 10% aplicado. Valor final: R\$ ${valorFinal.toStringAsFixed(2)}',
+        );
         break;
       } else if (formaPagamento == 2) {
         formaPagamentoStr = 'Cartão';
@@ -371,8 +458,8 @@ void acessarAreaRestrita() {
     sistema.totalFaturadoDia += valorFinal;
     sistema.totalClientesAtendidos++;
     print(
-        '\n✅ Venda para "$nomeCliente" no valor de R\$ ${valorFinal.toStringAsFixed(2)} ($formaPagamentoStr) registrada com sucesso!');
-
+      '\n✅ Venda para "$nomeCliente" no valor de R\$ ${valorFinal.toStringAsFixed(2)} ($formaPagamentoStr) registrada com sucesso!',
+    );
   } else {
     print('❌ Senha incorreta. Acesso negado.');
   }
@@ -384,11 +471,13 @@ void exibirRelatorioFinal() {
   limparTela();
   final sistema = Sistema();
   print('\n=============================================');
-  print('         Relatório Final do Dia');
+  print('         relatório Final do Dia');
   print('=============================================');
   print('Encerrando o sistema...');
   print('Total de clientes atendidos: ${sistema.totalClientesAtendidos}');
-  print('Total faturado no dia: R\$ ${sistema.totalFaturadoDia.toStringAsFixed(2)}');
+  print(
+    'Total faturado no dia: R\$ ${sistema.totalFaturadoDia.toStringAsFixed(2)}',
+  );
   print('\nObrigado por usar o sistema Cuidapet!');
   print('=============================================');
 }
